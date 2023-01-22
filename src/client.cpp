@@ -77,8 +77,19 @@ public:
 
     void handlePacket(ENetPeer*, const PLobbyStarted& packet)
     {
+        ENetAddress localhostAddr {};
+        enet_address_set_host_ip(&localhostAddr, "127.0.0.1");
+
+        auto serverAddr = packet.serverAddress;
+
+        if (serverAddr.host == localhostAddr.host) {
+            // Kostyl in case lobby server and game server are hosted on same remote machine
+            // (lobby will broadcast game server ip as 127.0.0.1)
+            serverAddr.host = lobby_peer_->address.host;
+        }
+
         disconnect(std::exchange(lobby_peer_, nullptr), []() {});
-        connect(packet.serverAddress, [this](ENetPeer* server) {
+        connect(serverAddr, [this](ENetPeer* server) {
             NG_VERIFY(server != nullptr);
             server_peer_ = server;
             snapshotHistory_.emplace_back(StateSnapshot{.time = Clock::now()});
